@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deník IZ Asistent</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #1a1a2e; min-height: 100vh; }
+
+header {
+  background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+  color: white; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+header .brand { display: flex; align-items: center; gap: 12px; }
+header h1 { font-size: 1.15rem; font-weight: 700; }
+header .subtitle { font-size: 0.78rem; opacity: 0.7; }
+
+.main { max-width: 1000px; margin: 28px auto; padding: 0 16px; }
+.card { background: white; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); padding: 24px; margin-bottom: 20px; }
+.card-title { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.step-badge { background: #1a3a5c; color: white; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.step-badge.done { background: #2ecc71; }
+
+/* Settings */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.setting-item label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 4px; font-weight: 600; }
+.setting-item input { width: 100%; padding: 8px 12px; border: 1.5px solid #d0d8e8; border-radius: 6px; font-size: 0.88rem; }
+.setting-item input:focus { outline: none; border-color: #2563a8; }
+.setting-item.full { grid-column: 1 / -1; }
+
+/* Drop zone */
+.drop-zone {
+  border: 2.5px dashed #90b4da; border-radius: 10px; padding: 36px 20px;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: #f7faff;
+}
+.drop-zone:hover, .drop-zone.drag-over { background: #e4edf9; border-color: #1a3a5c; }
+.drop-zone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+.drop-zone p { color: #2563a8; font-size: 0.95rem; font-weight: 600; margin-bottom: 5px; }
+.drop-zone small { color: #888; font-size: 0.82rem; }
+#fileInput { display: none; }
+
+.file-queue { margin-top: 12px; }
+.file-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f7faff; border-radius: 7px; margin-bottom: 6px; border: 1px solid #d8e6f5; font-size: 0.85rem; }
+.file-item .fname { flex: 1; font-weight: 600; color: #1a3a5c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fstatus { font-size: 0.8rem; white-space: nowrap; }
+.fstatus-wait { color: #888; }
+.fstatus-processing { color: #e67e22; font-weight: 600; }
+.fstatus-done { color: #27ae60; font-weight: 700; }
+.fstatus-error { color: #e74c3c; }
+.rm-btn { background: none; border: none; cursor: pointer; color: #aaa; font-size: 1rem; padding: 2px 6px; border-radius: 4px; }
+.rm-btn:hover { background: #fdecea; color: #e74c3c; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 20px; border-radius: 7px; border: none; cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.18s; white-space: nowrap; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: #1a3a5c; color: white; }
+.btn-primary:hover:not(:disabled) { background: #2a5a8c; }
+.btn-export { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 11px 26px; font-size: 0.95rem; }
+.btn-export:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-outline { background: white; color: #1a3a5c; border: 1.5px solid #b0c4de; }
+.btn-outline:hover:not(:disabled) { background: #eef2f7; }
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+
+/* Summary */
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 14px; background: #f0f5ff; border-radius: 10px; margin-bottom: 16px; }
+.stat { text-align: center; }
+.stat-num { font-size: 1.6rem; font-weight: 700; color: #1a3a5c; }
+.stat-label { font-size: 0.75rem; color: #666; }
+
+/* Table */
+.table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid #e8eef5; border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 700px; }
+thead th { background: #1a3a5c; color: white; padding: 8px 10px; text-align: left; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody td { padding: 6px 10px; border-bottom: 1px solid #edf2f8; vertical-align: middle; }
+tbody tr:hover td { background: #f0f5ff; }
+.row-c { background: #fffde7; }
+.tag { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 0.73rem; font-weight: 700; }
+.tag-j { background: #d4edda; color: #155724; }
+.tag-t { background: #cce5ff; color: #004085; }
+code { font-family: monospace; background: #f0f4fa; padding: 1px 5px; border-radius: 3px; font-size: 0.78rem; }
+
+/* Status */
+.sbar { padding: 10px 14px; border-radius: 7px; font-size: 0.85rem; margin: 8px 0; line-height: 1.5; }
+.sbar.info { background: #e8f4fd; border-left: 3px solid #4a90d9; color: #1a3a5c; }
+.sbar.ok { background: #eafaf1; border-left: 3px solid #27ae60; color: #1e5e3a; }
+.sbar.err { background: #fdecea; border-left: 3px solid #e74c3c; color: #922b21; }
+.sbar.loading { background: #fff8e1; border-left: 3px solid #f39c12; color: #7d5a00; }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.progress-wrap { background: #e9ecef; border-radius: 10px; height: 8px; margin: 8px 0; overflow: hidden; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, #27ae60, #2ecc71); border-radius: 10px; transition: width 0.4s ease; }
+
+@media (max-width: 600px) {
+  .settings-grid { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span style="font-size:1.5rem">🗂️</span>
+    <div>
+      <h1>Deník IZ Asistent</h1>
+      <div class="subtitle">Conseq Classic Invest • Extrakce dat ze smluv → OneDrive</div>
+    </div>
+  </div>
+  <div style="font-size:0.82rem; opacity:0.8">FinAZ s.r.o. • Jiří Černovský</div>
+</header>
+
+<div class="main">
+
+  <!-- NASTAVENÍ -->
+  <div class="card">
+    <div class="card-title"><span class="step-badge" id="s1badge">1</span> Nastavení</div>
+    <div class="settings-grid">
+      <div class="setting-item full">
+        <label>🔗 Make.com Webhook URL</label>
+        <input type="text" id="webhookUrl" value="https://hook.eu1.make.com/87t57rhuupi8leaj9chhpmd7y9lpas98" placeholder="https://hook.eu1.make.com/...">
+      </div>
+      <div class="setting-item">
+        <label>🔢 Poslední číslo pokynu (další bude o 1 vyšší)</label>
+        <input type="number" id="lastPokynum" value="945" min="1">
+      </div>
+      <div class="setting-item">
+        <label>👤 IČO poradce (sloupec AE)</label>
+        <input type="text" id="icoPoradce" value="26442671" placeholder="IČO investičního konzultanta">
+      </div>
+    </div>
+    <div class="sbar info" style="margin-top:12px; font-size:0.82rem">
+      ℹ️ Webhook URL je již předvyplněna z vašeho Make.com scénáře. Číslo pokynu se automaticky navyšuje s každou zpracovanou smlouvou.
+    </div>
+  </div>
+
+  <!-- NAHRÁNÍ PDF -->
+  <div class="card">
+    <div class="card-title"><span class="step-badge" id="s2badge">2</span> Nahrát smlouvy (PDF)</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="dz-icon">📄</div>
+      <p>Přetáhněte PDF smlouvy sem nebo klikněte pro výběr</p>
+      <small>Lze nahrát více souborů najednou • Smlouvy Conseq Classic Invest</small>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf" multiple>
+    <div class="file-queue" id="fileQueue"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="processBtn" disabled onclick="processAll()">
+        🔍 Extrahovat data ze smluv
+      </button>
+    </div>
+  </div>
+
+  <!-- VÝSLEDKY -->
+  <div class="card" id="resultsCard" style="display:none">
+    <div class="card-title"><span class="step-badge" id="s3badge">3</span> Extrahovaná data</div>
+
+    <div id="progressWrap" style="display:none">
+      <div style="font-size:0.85rem; color:#666; margin-bottom:4px">Zpracovávám: <span id="progText">0 / 0</span></div>
+      <div class="progress-wrap"><div class="progress-bar" id="progBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="summary-grid" id="summaryGrid" style="display:none">
+      <div class="stat"><div class="stat-num" id="stSmlouvy">0</div><div class="stat-label">Smlouvy</div></div>
+      <div class="stat"><div class="stat-num" id="stOsoby">0</div><div class="stat-label">Osoby (Evidence osob)</div></div>
+      <div class="stat"><div class="stat-num" id="stPokyny">0</div><div class="stat-label">Pokyny (fondy)</div></div>
+      <div class="stat"><div class="stat-num" id="stRadky">0</div><div class="stat-label">Řádků celkem</div></div>
+    </div>
+
+    <div class="table-wrap" id="tableWrap"></div>
+    <div id="resultsStatus"></div>
+
+    <div class="btn-group" style="margin-top:18px">
+      <button class="btn btn-export" id="exportBtn" onclick="exportToMake()" disabled>
+        ☁️ Export do ID (OneDrive přes Make.com)
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="resetApp()" style="padding:6px 14px; font-size:0.8rem">🔄 Nová dávka</button>
+    </div>
+    <div id="exportStatus"></div>
+  </div>
+
+</div>
+
+<script>
+// ===== CONFIG =====
+const WEBHOOK_URL_DEFAULT = 'https://hook.eu1.make.com/87t57rhuupi8leaj9chhpmd7y9lpas98';
+
+let files = [];
+let allExtracted = [];
+let currentPokynum = 0;
+
+// ===== DRAG & DROP =====
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+document.getElementById('fileInput').addEventListener('change', e => addFiles(e.target.files));
+
+function addFiles(list) {
+  for (const f of list) {
+    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+    if (files.find(x => x.name === f.name)) continue;
+    files.push({ file: f, name: f.name, status: 'wait', data: null });
+  }
+  renderQueue();
+  document.getElementById('processBtn').disabled = files.length === 0;
+}
+
+function renderQueue() {
+  const el = document.getElementById('fileQueue');
+  if (!files.length) { el.innerHTML = ''; return; }
+  el.innerHTML = files.map((f, i) => `
+    <div class="file-item">
+      <span>📄</span>
+      <span class="fname" title="${f.name}">${f.name}</span>
+      <span class="fstatus fstatus-${f.status}">${{wait:'⏳ Čeká',processing:'🔄 Zpracovávám…',done:'✅ Hotovo',error:'❌ Chyba'}[f.status]}</span>
+      ${f.status==='wait'?`<button class="rm-btn" onclick="removeFile(${i})">✕</button>`:''}
+    </div>`).join('');
+}
+
+function removeFile(i) {
+  files.splice(i, 1);
+  renderQueue();
+  document.getElementById('processBtn').disabled = files.length === 0;
+}
+
+// ===== EXTRACTION =====
+async function processAll() {
+  if (!files.length) return;
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('summaryGrid').style.display = 'none';
+  allExtracted = [];
+  currentPokynum = parseInt(document.getElementById('lastPokynum').value) || 945;
+
+  for (let i = 0; i < files.length; i++) {
+    setProgress(i, files.length);
+    files[i].status = 'processing';
+    renderQueue();
+    try {
+      const b64 = await toBase64(files[i].file);
+      files[i].data = await extractPDF(b64);
+      files[i].status = 'done';
+      allExtracted.push(files[i].data);
+    } catch(e) {
+      files[i].status = 'error';
+      files[i].err = e.message;
+      console.error('Extraction error:', e);
+    }
+    renderQueue();
+  }
+
+  setProgress(files.length, files.length);
+  setTimeout(() => document.getElementById('progressWrap').style.display = 'none', 600);
+
+  renderTable();
+  updateSummary();
+  document.getElementById('s3badge').classList.add('done');
+  document.getElementById('exportBtn').disabled = allExtracted.length === 0;
+}
+
+function setProgress(done, total) {
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('progBar').style.width = pct + '%';
+  document.getElementById('progText').textContent = `${done} / ${total}`;
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Chyba čtení souboru'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function extractPDF(b64) {
+  const prompt = `Analyzuj tuto smlouvu Conseq Classic Invest. Vrať POUZE validní JSON bez jakéhokoliv dalšího textu.
+
+{
+  "smlouva": {
+    "cislo_smlouvy": "číslo smlouvy z pole ČÍSLO SMLOUVY",
+    "datum_podpisu": "datum podpisu klienta ve formátu DD.MM.YYYY",
+    "rc_ico": "rodné číslo zákazníka bez lomítka, pouze číslice",
+    "jmeno": "křestní jméno zákazníka",
+    "prijmeni": "příjmení zákazníka",
+    "ulice": "ulice a číslo popisné z adresy zákazníka",
+    "mesto": "město z adresy zákazníka",
+    "psc": "poštovní směrovací číslo zákazníka",
+    "stat": "stát zákazníka, obvykle Česká republika",
+    "ico_poradce": "číslo z pole IČO(inv.kon.) v sekci E - OBCHODNÍ ZÁSTUPCE",
+    "investicni_horizont": "přesný text z řádku Investiční horizont na straně 6, např. min. 8 let",
+    "tolerance_rizika": "číslo z řádku Tolerance rizika: SRI max. na straně 6"
+  },
+  "pokyny": [
+    {
+      "typ": "J pro jednorázový pokyn z JEDNORÁZOVÉ POKYNY K NÁKUPU, T pro trvalý pokyn z TRVALÝ POKYN K NÁKUPU",
+      "isin": "ISIN kód fondu",
+      "nazev_fondu": "přesný název fondu jak je uveden ve smlouvě",
+      "castka": číslo bez uvozovek (hrubá částka pro tento konkrétní fond a ISIN)
+    }
+  ]
+}
+
+Důležité:
+- Adresu zákazníka najdeš v záhlaví smlouvy u jména zákazníka
+- IČO poradce je v sekci E - OBCHODNÍ ZÁSTUPCE v kolonce IČO(inv.kon.)
+- Investiční horizont a Tolerance rizika jsou na straně 6 v tabulce VYHODNOCENÍ CÍLOVÉHO TRHU
+- Každý fond/ISIN je samostatný pokyn v poli pokyny
+- U trvalých pokynů (T) uveď každý fond zvlášť s jeho individuální částkou
+- Typ J = jednorázový, T = trvalý/pravidelný`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error?.message || 'API chyba');
+  const text = data.content[0]?.text || '';
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Neplatná odpověď AI');
+  return JSON.parse(m[0]);
+}
+
+// ===== TABLE =====
+function renderTable() {
+  if (!allExtracted.length) return;
+  let h = `<table><thead><tr>
+    <th>Smlouva</th><th>Zákazník</th><th>Datum</th><th>Adresa</th>
+    <th>Typ</th><th>ISIN</th><th>Fond</th><th>Částka</th>
+  </tr></thead><tbody>`;
+
+  for (const d of allExtracted) {
+    const s = d.smlouva;
+    const jmeno = `${s.prijmeni||''} ${s.jmeno||''}`.trim();
+    const adresa = [s.ulice, s.mesto, s.psc].filter(Boolean).join(', ');
+    h += `<tr class="row-c">
+      <td><strong>${s.cislo_smlouvy||'—'}</strong></td>
+      <td><strong>${jmeno}</strong><br><small style="color:#888">${s.rc_ico||''}</small></td>
+      <td style="white-space:nowrap">${s.datum_podpisu||'—'}</td>
+      <td style="font-size:0.78rem; color:#666">${adresa||'—'}</td>
+      <td colspan="3" style="color:#888; font-size:0.8rem">📋 Řádek smlouvy</td>
+      <td></td>
+    </tr>`;
+    for (const p of (d.pokyny||[])) {
+      h += `<tr>
+        <td></td>
+        <td></td><td></td><td></td>
+        <td><span class="tag ${p.typ==='T'?'tag-t':'tag-j'}">${p.typ==='T'?'Trvalý':'Jednorázový'}</span></td>
+        <td><code>${p.isin||'—'}</code></td>
+        <td style="font-size:0.82rem">${p.nazev_fondu||'—'}</td>
+        <td><strong>${Number(p.castka||0).toLocaleString('cs-CZ')} Kč</strong></td>
+      </tr>`;
+    }
+  }
+  h += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = h;
+}
+
+function updateSummary() {
+  const sm = allExtracted.length;
+  const pk = allExtracted.reduce((a,d) => a+(d.pokyny||[]).length, 0);
+  document.getElementById('stSmlouvy').textContent = sm;
+  document.getElementById('stOsoby').textContent = sm;
+  document.getElementById('stPokyny').textContent = pk;
+  document.getElementById('stRadky').textContent = sm + pk;
+  document.getElementById('summaryGrid').style.display = 'grid';
+}
+
+// ===== BUILD WEBHOOK PAYLOADS =====
+function buildPayloads() {
+  const payloads = [];
+  let pokynCounter = parseInt(document.getElementById('lastPokynum').value) || 945;
+  const icoPoradce = document.getElementById('icoPoradce').value || '26442671';
+
+  for (const d of allExtracted) {
+    const s = d.smlouva;
+    const rc = s.rc_ico || '';
+    const jmeno = s.jmeno || '';
+    const prijmeni = s.prijmeni || '';
+    const jmenoPrijmeni = `${prijmeni} ${jmeno}`.trim();
+    const datum = s.datum_podpisu || '';
+    const cislo = s.cislo_smlouvy || '';
+    const horizont = s.investicni_horizont || 'min. 8 let';
+    const riziko = s.tolerance_rizika || '7';
+
+    // === EVIDENCE OSOB řádek ===
+    payloads.push({
+      list: 'Evidence osob',
+      typ: 'osoba',
+      data: {
+        A: rc,           // rodné číslo
+        C: prijmeni,     // příjmení
+        D: jmeno,        // jméno
+        E: s.ulice || '',
+        F: s.mesto || '',
+        G: s.psc || '',
+        H: s.stat || 'Česká republika'
+      }
+    });
+
+    // === EVIDENCE SMLUV řádek SMLOUVY ===
+    payloads.push({
+      list: 'Evidence smluv a pokynů',
+      typ: 'smlouva',
+      data: {
+        A: cislo,         // číslo smlouvy
+        B: rc,            // RČ zákazníka
+        C: jmenoPrijmeni, // příjmení a jméno
+        D: rc,            // RČ zadavatele
+        E: jmenoPrijmeni, // příjmení a jméno zadavatele
+        F: 'J',           // smlouva typ
+        G: 'B',           // smlouva předmět
+        H: '',            // číslo pokynu - prázdné u smlouvy
+        I: '',            // datum přijetí pokynu - prázdné u smlouvy
+        J: datum,         // datum uzavření smlouvy
+        K: '',            // způsob přijetí - prázdné u smlouvy
+        L: '',            // typ identifikace IN - prázdné u smlouvy
+        M: '',            // ISIN - prázdné u smlouvy
+        N: '',            // název IN - prázdné u smlouvy
+        G2: '',           // nákup/prodej - prázdné u smlouvy (sloupec R)
+        R: '',
+        U: '',            // měna - prázdné u smlouvy
+        V: '',            // částka - prázdná u smlouvy
+        W: '',
+        X: '',
+        Y: '26442671',   // identifikace třetí osoby (Conseq)
+        Z: datum,         // datum předání pokynu
+        AA: 'E',          // způsob předání
+        AE: s.ico_poradce || icoPoradce,
+        AH: 'Neprofesionální',
+        AK: 'Informovaný',
+        AN: horizont,
+        AQ: 'Růst',
+        AT: 'ANO',
+        AW: String(riziko)
+      }
+    });
+
+    // === EVIDENCE SMLUV řádky POKYNŮ ===
+    for (const p of (d.pokyny||[])) {
+      pokynCounter++;
+      const isT = p.typ === 'T';
+
+      payloads.push({
+        list: 'Evidence smluv a pokynů',
+        typ: 'pokyn',
+        cislo_smlouvy: cislo,
+        data: {
+          A: cislo,
+          B: rc,
+          C: jmenoPrijmeni,
+          D: rc,
+          E: jmenoPrijmeni,
+          F: '',            // prázdné u pokynu
+          G: '',            // prázdné u pokynu
+          H: String(pokynCounter), // číslo pokynu
+          I: datum,         // datum přijetí pokynu
+          J: '',            // prázdné u pokynu
+          K: 'E',           // způsob přijetí pokynu
+          L: 'I',           // typ identifikace IN
+          M: p.isin || '',  // ISIN
+          N: p.nazev_fondu || '', // název fondu
+          R: 'B',           // nákup/prodej
+          U: 'CZK',         // měna
+          V: String(p.castka || ''),
+          W: 'N',           // notace množství
+          X: isT ? 'M' : 'J', // periodicita: M=pravidelný, J=jednorázový
+          Y: '26442671',
+          Z: datum,
+          AA: 'E',
+          AE: s.ico_poradce || icoPoradce,
+          AH: 'Neprofesionální',
+          AK: 'Informovaný',
+          AN: horizont,
+          AQ: 'Růst',
+          AT: 'ANO',
+          AW: String(riziko)
+        }
+      });
+    }
+  }
+
+  return payloads;
+}
+
+// ===== EXPORT =====
+async function exportToMake() {
+  const webhookUrl = document.getElementById('webhookUrl').value.trim();
+  if (!webhookUrl) {
+    setBar('exportStatus', '❌ Zadejte webhook URL.', 'err');
+    return;
+  }
+
+  document.getElementById('exportBtn').disabled = true;
+  const payloads = buildPayloads();
+  
+  setBar('exportStatus', `<span class="spin"></span> Odesílám ${payloads.length} řádků do Make.com…`, 'loading');
+
+  let sent = 0;
+  let errors = 0;
+  const errorDetails = [];
+
+  for (const payload of payloads) {
+    try {
+      const resp = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        errors++;
+        errorDetails.push(`Řádek ${sent+1}: HTTP ${resp.status}`);
+      }
+      sent++;
+      setBar('exportStatus', `<span class="spin"></span> Odesílám… ${sent} / ${payloads.length}`, 'loading');
+      // Krátká pauza aby Make.com nestíhal
+      await sleep(300);
+    } catch(e) {
+      errors++;
+      errorDetails.push(`Řádek ${sent+1}: ${e.message}`);
+      sent++;
+    }
+  }
+
+  // Aktualizuj čítač pokynů
+  const newCounter = (parseInt(document.getElementById('lastPokynum').value) || 945) +
+    allExtracted.reduce((a, d) => a + (d.pokyny||[]).length, 0);
+  document.getElementById('lastPokynum').value = newCounter;
+
+  if (errors === 0) {
+    const smlouvy = allExtracted.length;
+    const pokyny = allExtracted.reduce((a,d) => a+(d.pokyny||[]).length, 0);
+    setBar('exportStatus',
+      `✅ Hotovo! Odesláno ${smlouvy} smluv + ${smlouvy} osob + ${pokyny} pokynů = <strong>${payloads.length} řádků</strong> do vašeho Deníku IZ na OneDrive. Další číslo pokynu: <strong>${newCounter + 1}</strong>`,
+      'ok');
+  } else {
+    setBar('exportStatus',
+      `⚠️ Odesláno s ${errors} chybami. Úspěšně: ${sent - errors} / ${payloads.length}. ${errorDetails.join('; ')}`,
+      'err');
+  }
+
+  document.getElementById('exportBtn').disabled = false;
+}
+
+// ===== UTILS =====
+function setBar(id, msg, type) {
+  document.getElementById(id).innerHTML = `<div class="sbar ${type}">${msg}</div>`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function resetApp() {
+  files = []; allExtracted = [];
+  document.getElementById('fileQueue').innerHTML = '';
+  document.getElementById('tableWrap').innerHTML = '';
+  document.getElementById('resultsCard').style.display = 'none';
+  document.getElementById('exportStatus').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('exportBtn').disabled = true;
+  ['s2badge','s3badge'].forEach(id => document.getElementById(id).classList.remove('done'));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>
